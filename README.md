@@ -34,3 +34,6 @@ Dịch vụ Node.js (Express) đóng vai trò là API Gateway, chịu trách nhi
 
 6. **Truy cập:**
    API sẽ chạy tại: `http://localhost:5000`
+
+7. **API Document:**
+   Link: `https://nikopham-6191851.postman.co/workspace/Niko-Pham's-Workspace~c93dd977-2eb7-4000-8313-d16e37714d6c/collection/44003931-71890a6c-9584-4ef7-be75-d1319fa8401a?action=share&creator=44003931`
