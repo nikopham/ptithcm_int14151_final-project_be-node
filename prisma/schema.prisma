@@ -1,0 +1,284 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+// Looking for ways to speed up your queries, or scale easily with your serverless or edge functions?
+// Try Prisma Accelerate: https://pris.ly/cli/accelerate-init
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum MovieType {
+  movie
+  tv
+}
+
+enum AccountStatus {
+  active
+  inactive
+}
+
+enum VideoQuality {
+  Q360P
+  Q480P
+  Q720P
+  Q1080P
+  Q4K
+}
+
+enum UserAction {
+  view
+  like
+  wishlist
+  rate
+  comment
+}
+
+enum MovieStatus {
+  published // Đã công khai, người xem thấy được
+  pending   // Đang chờ (mới import, chưa có source)
+}
+
+model Role {
+  id    Int       @id @default(autoincrement())
+  name  String    @unique @db.VarChar(50) // thêm @unique
+  users Account[]
+}
+
+model Account {
+  id           Int            @id @default(autoincrement())
+  email        String         @unique @db.VarChar(255)
+  password     String         @db.VarChar(255)
+  full_name    String?        @db.VarChar(255)
+  avatar_url   String?        @db.VarChar(255)
+  status       AccountStatus  @default(active)
+  role_id      Int?
+  role         Role?          @relation(fields: [role_id], references: [id])
+  created_at   DateTime       @default(now())
+  reviews      Review[]
+  comments     Comment[]
+  likes        LikeMovie[]
+  wishlists    Wishlist[]
+  watchHistory WatchHistory[]
+  activities   UserActivity[]
+  RefreshToken RefreshToken[]
+}
+
+model Country {
+  id     Int     @id @default(autoincrement())
+  iso_id String? @unique @db.VarChar(10)
+  name   String  @db.VarChar(100) 
+  movies Movie[]
+}
+
+model Movie {
+  id             Int             @id @default(autoincrement())
+  // Thêm cho TMDb
+  tmdb_id      Int?       @unique
+  // Thêm cho trạng thái publish
+  status       MovieStatus @default(pending)
+  imdb_score   Float?     @default(0)
+  total_episodes Int?     @default(0)
+  title          String          @db.VarChar(255)
+  description    String?
+  type           MovieType
+  release_year   Int?
+  duration       Int?
+  poster_url     String?         @db.VarChar(255)
+  banner_url     String?         @db.VarChar(255)
+  country_id     Int?
+  country        Country?        @relation(fields: [country_id], references: [id])
+  view_count     BigInt          @default(0)
+  created_at     DateTime        @default(now())
+  updated_at     DateTime        @updatedAt
+  movieGenres    MovieGenre[]
+  movieActors    MovieActor[]
+  movieDirectors MovieDirector[]
+  episodes       Episode[]
+  reviews        Review[]
+  comments       Comment[]
+  likes          LikeMovie[]
+  wishlists      Wishlist[]
+  watchHistory   WatchHistory[]
+  activities     UserActivity[]
+  
+}
+
+model Genre {
+  id         Int          @id @default(autoincrement())
+  // Thêm cho TMDb
+  tmdb_id    Int?         @unique
+  name       String       @db.VarChar(100)
+  movieGenre MovieGenre[]
+}
+
+model MovieGenre {
+  movie_id Int
+  genre_id Int
+  movie    Movie @relation(fields: [movie_id], references: [id])
+  genre    Genre @relation(fields: [genre_id], references: [id])
+
+  @@id([movie_id, genre_id])
+}
+
+model Actor {
+  id         Int          @id @default(autoincrement())
+  // Thêm cho TMDb
+  tmdb_id    Int?         @unique
+  name       String       @db.VarChar(100)
+  avatar_url String?      @db.VarChar(255)
+  movies     MovieActor[]
+}
+
+model MovieActor {
+  movie_id Int
+  actor_id Int
+  movie    Movie @relation(fields: [movie_id], references: [id])
+  actor    Actor @relation(fields: [actor_id], references: [id])
+
+  @@id([movie_id, actor_id])
+}
+
+model Director {
+  id         Int             @id @default(autoincrement())
+  // Thêm cho TMDb
+  tmdb_id    Int?            @unique
+  name       String          @db.VarChar(100)
+  avatar_url String?         @db.VarChar(255)
+  movies     MovieDirector[]
+}
+
+model MovieDirector {
+  movie_id    Int
+  director_id Int
+  movie       Movie    @relation(fields: [movie_id], references: [id])
+  director    Director @relation(fields: [director_id], references: [id])
+
+  @@id([movie_id, director_id])
+}
+
+model Episode {
+  id             Int            @id @default(autoincrement())
+  tmdb_id        Int?           @unique // ID từ TMDb
+  movie_id       Int
+  season_number  Int?
+  title          String?        @db.VarChar(255)
+  episode_number Int?
+  duration       Int?
+  created_at     DateTime       @default(now())
+  movie          Movie          @relation(fields: [movie_id], references: [id])
+  watchHistory   WatchHistory[]
+  videoSources   VideoSource[]
+}
+
+// Để xử lý nhiều chất lượng video
+model VideoSource {
+  id         Int          @id @default(autoincrement())
+  episode_id Int
+  episode    Episode      @relation(fields: [episode_id], references: [id], onDelete: Cascade)
+
+  video_url  String       @db.VarChar(255) // URL đến file
+  quality    VideoQuality // 720p, 1080p...
+  label      String?      @db.VarChar(50) // Ví dụ: "720p (Vietsub)"
+
+  @@index([episode_id])
+}
+
+model WatchHistory {
+  id               Int      @id @default(autoincrement())
+  account_id       Int
+  movie_id         Int
+  episode_id       Int?
+  watched_duration Int      @default(0)
+  total_duration   Int?
+  last_watched_at  DateTime @default(now())
+
+  account Account  @relation(fields: [account_id], references: [id])
+  movie   Movie    @relation(fields: [movie_id], references: [id])
+  episode Episode? @relation(fields: [episode_id], references: [id])
+}
+
+model UserActivity {
+  id         Int        @id @default(autoincrement())
+  account_id Int
+  movie_id   Int
+  action     UserAction
+  weight     Float      @default(1.0)
+  created_at DateTime   @default(now())
+
+  account Account @relation(fields: [account_id], references: [id])
+  movie   Movie   @relation(fields: [movie_id], references: [id])
+}
+
+model LikeMovie {
+  account_id Int
+  movie_id   Int
+  created_at DateTime @default(now())
+
+  account Account @relation(fields: [account_id], references: [id])
+  movie   Movie   @relation(fields: [movie_id], references: [id])
+
+  @@id([account_id, movie_id])
+}
+
+model Wishlist {
+  account_id Int
+  movie_id   Int
+  created_at DateTime @default(now())
+
+  account Account @relation(fields: [account_id], references: [id])
+  movie   Movie   @relation(fields: [movie_id], references: [id])
+
+  @@id([account_id, movie_id])
+}
+
+model Review {
+  id         Int      @id @default(autoincrement())
+  movie_id   Int
+  account_id Int
+  rating     Int
+  content    String?
+  created_at DateTime @default(now())
+
+  movie   Movie   @relation(fields: [movie_id], references: [id])
+  account Account @relation(fields: [account_id], references: [id])
+}
+
+model Comment {
+  id         Int      @id @default(autoincrement())
+  movie_id   Int
+  account_id Int
+  content    String
+  created_at DateTime @default(now())
+
+  movie   Movie   @relation(fields: [movie_id], references: [id])
+  account Account @relation(fields: [account_id], references: [id])
+}
+
+model RefreshToken {
+  id         Int      @id @default(autoincrement())
+  account_id Int
+  token      String   @db.VarChar(255)
+  expires_at DateTime
+  created_at DateTime @default(now())
+  revoked    Boolean  @default(false)
+
+  account Account @relation(fields: [account_id], references: [id])
+}
+
+model OtpSession {
+  id          Int      @id @default(autoincrement())
+  email       String   @db.VarChar(255)
+  code        String   @db.VarChar(10)
+  type        String?  @db.VarChar(50)
+  expires_at  DateTime
+  is_used     Boolean  @default(false)
+  attempt     Int      @default(0)
+  created_at  DateTime @default(now())
+  modified_at DateTime @updatedAt
+}
